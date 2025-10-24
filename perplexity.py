@@ -59,6 +59,7 @@ class ApiConfig:
     usage: bool = False
     citations: bool = False
     model: str | None = None
+    stream: bool = False
 
 
 class ModelValidator:
@@ -88,6 +89,7 @@ class Perplexity:
         self.setup.model = args.model
         self.setup.usage = args.usage
         self.setup.citations = args.citations
+        self.setup.stream = args.stream
         self.use_glow = args.glow
         if not args.api_key:
             api_key = ApiKeyValidator.get_api_key_from_system()
@@ -115,23 +117,92 @@ class Perplexity:
                 {"role": "user", "content": message},
             ],
         }
+
+        if self.setup.stream:
+            query_data["stream"] = True
+
         logger.debug(f"Query data: {query_data}")
 
         response = requests.post(
-            self.setup.api_url, headers=headers, data=json.dumps(query_data)
+            self.setup.api_url, headers=headers, data=json.dumps(query_data), stream=self.setup.stream
         )
 
         if response.status_code == 200:
-            result = response.json()
-            if self.setup.citations:
-                self._show_citations(result["citations"], self.use_glow)
-            if self.setup.usage:
-                self._show_usage(result["usage"], self.use_glow)
-            self._show_content(result["choices"][0]["message"]["content"])
+            if self.setup.stream:
+                self._handle_streaming_response(response)
+            else:
+                result = response.json()
+                if self.setup.citations:
+                    self._show_citations(result["citations"], self.use_glow)
+                if self.setup.usage:
+                    self._show_usage(result["usage"], self.use_glow)
+                self._show_content(result["choices"][0]["message"]["content"])
         elif response.status_code == 401:
             display("Invalid api key! ", "red")
         else:
             logger.error(f"Error: {response.status_code}")
+
+    def _handle_streaming_response(self, response) -> None:
+        """Handle streaming response from Perplexity API"""
+        content_buffer = []
+        citations = []
+        usage = {}
+
+        # Show content header
+        if self.use_glow:
+            print("# Content")
+        else:
+            display("Content \n", "yellow", True, "blue")
+
+        for line in response.iter_lines():
+            if not line:
+                continue
+
+            line = line.decode('utf-8')
+
+            # Skip lines that don't contain data
+            if not line.startswith('data: '):
+                continue
+
+            # Remove 'data: ' prefix
+            data_str = line[6:]
+
+            # Check for end of stream
+            if data_str.strip() == '[DONE]':
+                break
+
+            try:
+                data = json.loads(data_str)
+
+                # Extract content delta if present
+                if 'choices' in data and len(data['choices']) > 0:
+                    choice = data['choices'][0]
+                    if 'delta' in choice and 'content' in choice['delta']:
+                        content_chunk = choice['delta']['content']
+                        print(content_chunk, end='', flush=True)
+                        content_buffer.append(content_chunk)
+
+                # Collect citations if present
+                if 'citations' in data and data['citations']:
+                    citations = data['citations']
+
+                # Collect usage info if present
+                if 'usage' in data and data['usage']:
+                    usage = data['usage']
+
+            except json.JSONDecodeError as e:
+                logger.debug(f"Failed to parse JSON: {e}, line: {data_str}")
+                continue
+
+        # Print newlines after streaming content
+        print("\n")
+
+        # Show citations and usage if requested
+        if self.setup.citations and citations:
+            self._show_citations(citations, self.use_glow)
+
+        if self.setup.usage and usage:
+            self._show_usage(usage, self.use_glow)
 
     @staticmethod
     def _show_usage(result: dict, use_glow: bool) -> None:
@@ -167,6 +238,7 @@ def main() -> None:
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug mode")
     parser.add_argument("-u", "--usage", action="store_true", help="Show usage")
     parser.add_argument("-c", "--citations", action="store_true", help="Show citations")
+    parser.add_argument("-s", "--stream", action="store_true", help="Enable streaming mode")
     parser.add_argument("-g", "--glow", action="store_true", help="Show citations")
     parser.add_argument(
         "-a",
