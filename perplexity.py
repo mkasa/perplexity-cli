@@ -239,7 +239,7 @@ def main() -> None:
     parser.add_argument("-u", "--usage", action="store_true", help="Show usage")
     parser.add_argument("-c", "--citations", action="store_true", help="Show citations")
     parser.add_argument("-s", "--stream", action="store_true", help="Enable streaming mode")
-    parser.add_argument("-g", "--glow", action="store_true", help="Show citations")
+    parser.add_argument("-g", "--glow", action="store_true", help="Use markdown formatting for output")
     parser.add_argument(
         "-a",
         "--api-key",
