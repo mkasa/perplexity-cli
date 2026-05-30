@@ -7,6 +7,7 @@ Perplexity CLI is a simple and convenient command-line client for the Perplexity
 -   Support for various language models
 -   Optional display of token usage statistics
 -   Optional display of citations
+-   Optional real-time streaming of responses
 -   Colorful output formatting (with glow support)
 -   API key handling from environment variable or command-line argument
 
@@ -37,6 +38,7 @@ perplexity -uc -m sonar-pro "Explain Einstein's theory of relativity"
 -   `-v`, `--verbose`: Enable debug mode
 -   `-u`, `--usage`: Show token usage statistics
 -   `-c`, `--citations`: Show citations
+-   `-s`, `--stream`: Enable streaming mode (display the response in real time as it arrives)
 -   `-g`, `--glow`: Use Glow-compatible formatting
 -   `-a API_KEY`, `--api-key API_KEY`: Set the API key (optional, defaults to `PERPLEXITY_API_KEY` environment variable)
 -   `-m MODEL`, `--model MODEL`: Choose the language model (default: sonar-pro)
